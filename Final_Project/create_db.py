@@ -21,7 +21,7 @@ normalized_title_basic = [
     """
     CREATE TABLE IF NOT EXISTS title_type (
         title_type_id INT AUTO_INCREMENT PRIMARY KEY,
-        title_type_name VARCHAR(64),
+        title_type_name VARCHAR(64) NOT NULL
     );
     """,
 
@@ -30,7 +30,7 @@ normalized_title_basic = [
     """
     CREATE TABLE IF NOT EXISTS genre (
         genre_id INT AUTO_INCREMENT PRIMARY KEY,
-        genre_name VARCHAR(64)
+        genre_name VARCHAR(64) NOT NULL
     );
     """,
 
@@ -95,7 +95,7 @@ normalized_name_basic = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         nconst VARCHAR(12) NOT NULL,
         tconst VARCHAR(12) NOT NULL,
-        position SMALLINT NOT NULL,   -- order from the original list
+        position SMALLINT NOT NULL,
     );
     """
 ]
