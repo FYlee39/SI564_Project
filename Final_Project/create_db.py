@@ -17,6 +17,7 @@ start_Statements = [
 # Normalized "title_basic"
 normalized_title_basic = [
     # Lookup: title_type
+    # Split title type by comma, distinct types rows.
     """
     CREATE TABLE IF NOT EXISTS title_type (
         title_type_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -25,6 +26,7 @@ normalized_title_basic = [
     """,
 
     # Lookup: genre
+    # Split genres by comma, distinct genre rows.
     """
     CREATE TABLE IF NOT EXISTS genre (
         genre_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -52,6 +54,48 @@ normalized_title_basic = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         tconst VARCHAR(12) NOT NULL,
         genre_id INT NOT NULL,
+    );
+    """
+]
+
+normalized_name_basic = [
+
+    # Core table: name_basics (normalized, no multivalue fields)
+    """
+    CREATE TABLE IF NOT EXISTS name_basics (
+        nconst VARCHAR(12) NOT NULL PRIMARY KEY,
+        primaryName VARCHAR(256) NULL,
+        birthYear SMALLINT NULL,
+        deathYear SMALLINT NULL
+    );
+    """,
+
+    # Lookup: profession
+    # Split primaryProfession.
+    """
+    CREATE TABLE IF NOT EXISTS profession (
+        profession_id INT AUTO_INCREMENT PRIMARY KEY,
+        profession_name VARCHAR(128) NOT NULL
+    );
+    """,
+
+    # Bridge: person_profession (name_basics : profession)
+    """
+    CREATE TABLE IF NOT EXISTS person_profession (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nconst VARCHAR(12) NOT NULL,
+        profession_id INT NOT NULL
+    );
+    """,
+
+    # Bridge: name_known_for (name_basics : title_basics with ordering)
+    # Split knownForTitles
+    """
+    CREATE TABLE IF NOT EXISTS name_known_for (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nconst VARCHAR(12) NOT NULL,
+        tconst VARCHAR(12) NOT NULL,
+        position SMALLINT NOT NULL,   -- order from the original list
     );
     """
 ]
