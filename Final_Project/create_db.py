@@ -70,6 +70,7 @@ normalized_title_basic = [
     """
 ]
 
+# Normalized "name basic"
 normalized_name_basic = [
     # Core table: name_basics
     """
@@ -85,7 +86,7 @@ normalized_name_basic = [
     # Split primaryProfession.
     """
     CREATE TABLE IF NOT EXISTS profession (
-        profession_id INT AUTO_INCREMENT PRIMARY KEY,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         profession_name VARCHAR(128) NOT NULL
     );
     """,
@@ -111,13 +112,14 @@ normalized_name_basic = [
         CONSTRAINT fk_nconst
             FOREIGN KEY (nconst) REFERENCES name_basics(nconst)
             ON UPDATE CASCADE ON DELETE CASCADE,
-        CONSTRAINT fk_profession_id
-            FOREIGN KEY (profession_id) REFERENCES profession(profession_id)
+        CONSTRAINT fk_tconst
+            FOREIGN KEY (tconst) REFERENCES title_basics(tconst)
             ON UPDATE CASCADE ON DELETE CASCADE
     );
     """
 ]
 
+# Normalized title_akas
 normalized_title_akas = [
     # Core table: title_akas
     # Foreign Key: titleId
@@ -183,6 +185,54 @@ normalized_title_akas = [
     """,
 ]
 
+# Normalized title principals
+normalized_title_principals = [
+    # Lookup: principal_category (e.g., "actor", "actress", "director", "producer", ...)
+    """
+    CREATE TABLE IF NOT EXISTS principal_category (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category_name VARCHAR(64) NOT NULL
+    );
+    """,
+
+    # Core table: title_principals
+    """
+    CREATE TABLE IF NOT EXISTS title_principals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tconst VARCHAR(12) NOT NULL,
+        ordering INT NOT NULL,
+        nconst VARCHAR(12)  NOT NULL,
+        category_id  INT NULL,
+        job VARCHAR(256) NULL,
+        CONSTRAINT fk_tconst
+            FOREIGN KEY (tconst) REFERENCES title_basics(tconst)
+            ON UPDATE CASCADE
+            ON DELETE CASCADE,
+        CONSTRAINT fk_nconst
+            FOREIGN KEY (nconst) REFERENCES name_basics(nconst)
+            ON UPDATE CASCADE
+            ON DELETE CASCADE,
+        CONSTRAINT fk_category_id
+            FOREIGN KEY (category_id) REFERENCES principal_category(id)
+            ON UPDATE CASCADE
+            ON DELETE SET NULL
+    );
+    """,
+
+    # Bridge table: principal_character
+    """
+    CREATE TABLE IF NOT EXISTS principal_character (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title_principals_id INT NOT NULL,
+        character VARCHAR(512) NULL,
+        CONSTRAINT fk_title_principals_id
+            FOREIGN KEY title_principals_id
+            REFERENCES title_principals(id)
+            ON UPDATE CASCADE
+            ON DELETE CASCADE
+    );
+    """
+]
 
 DDL_STATEMENTS = [
     normalized_title_basic,
