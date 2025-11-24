@@ -1,11 +1,11 @@
 import mysql.connector as mysql
 
 # ---- UPDATE THESE AS NEEDED ----
-DB_HOST = "localhost"
+DB_HOST = "*"
 DB_PORT = 3306
-DB_USER = "root"
-DB_PASS = "your_password"
-DB_NAME = "imdb_normalized"
+DB_USER = "*"
+DB_PASS = "*"
+DB_NAME = "*"
 # --------------------------------
 
 # Create databases if not exist
@@ -38,7 +38,7 @@ normalized_title_basic = [
             endYear SMALLINT NULL,
             runtimeMinutes SMALLINT NULL,
             title_type_id INT NULL,
-            CONSTRAINT fk_title_type_id
+            CONSTRAINT fk_tt_type_id
                 FOREIGN KEY (title_type_id) REFERENCES title_type(title_type_id)
             ON UPDATE CASCADE ON DELETE CASCADE
         );
@@ -60,10 +60,10 @@ normalized_title_basic = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         tconst VARCHAR(12) NOT NULL,
         genre_id INT NOT NULL,
-        CONSTRAINT fk_tconst
+        CONSTRAINT fk_tg_title
             FOREIGN KEY (tconst) REFERENCES title_basics(tconst)
             ON UPDATE CASCADE ON DELETE CASCADE,
-        CONSTRAINT fk_genere_id
+        CONSTRAINT fk_tg_genere_id
             FOREIGN KEY (genre_id) REFERENCES genre(genre_id)
             ON UPDATE CASCADE ON DELETE CASCADE
     );
@@ -78,7 +78,7 @@ normalized_name_basic = [
         nconst VARCHAR(12) NOT NULL PRIMARY KEY,
         primaryName VARCHAR(256) NULL,
         birthYear SMALLINT NULL,
-        deathYear SMALLINT NULL,
+        deathYear SMALLINT NULL
     );
     """,
 
@@ -109,10 +109,10 @@ normalized_name_basic = [
         nconst VARCHAR(12) NOT NULL,
         tconst VARCHAR(12) NOT NULL,
         position SMALLINT NOT NULL,
-        CONSTRAINT fk_nconst
+        CONSTRAINT fk_nt_nconst
             FOREIGN KEY (nconst) REFERENCES name_basics(nconst)
             ON UPDATE CASCADE ON DELETE CASCADE,
-        CONSTRAINT fk_tconst
+        CONSTRAINT fk_nt_tconst
             FOREIGN KEY (tconst) REFERENCES title_basics(tconst)
             ON UPDATE CASCADE ON DELETE CASCADE
     );
@@ -132,7 +132,7 @@ normalized_title_akas = [
         region_code VARCHAR(16) NULL,
         language_code VARCHAR(16) NULL,
         isOriginalTitle TINYINT(1) NULL,
-        CONSTRAINT fk_titleId
+        CONSTRAINT fk_tt_titleId
             FOREIGN KEY (titleId) REFERENCES title_basics(tconst) 
         ON UPDATE CASCADE ON DELETE CASCADE
     );
@@ -142,7 +142,7 @@ normalized_title_akas = [
     """
     CREATE TABLE IF NOT EXISTS title_types (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        type_name VARCHAR(512) NOT NULL,
+        type_name VARCHAR(512) NOT NULL
     );
     """,
 
@@ -152,10 +152,10 @@ normalized_title_akas = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         title_akas_id INT NOT NULL,
         title_types_id INT NOT NULL,
-        CONSTRAINT fk_title_akas_id
+        CONSTRAINT fk_tt_title_akas_id
             FOREIGN KEY (title_akas_id) REFERENCES title_akas(id) 
         ON UPDATE CASCADE ON DELETE CASCADE,
-        CONSTRAINT fk_title_types_id
+        CONSTRAINT fk_tt_title_types_id
             FOREIGN KEY (title_types_id) REFERENCES title_types(id) 
         ON UPDATE CASCADE ON DELETE CASCADE
     );
@@ -165,7 +165,7 @@ normalized_title_akas = [
     """
     CREATE TABLE IF NOT EXISTS title_attribute (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        attribute_name VARCHAR(128) NOT NULL,
+        attribute_name VARCHAR(128) NOT NULL
     );
     """,
     
@@ -175,10 +175,10 @@ normalized_title_akas = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         title_akas_id INT NOT NULL,
         title_attribute_id INT NOT NULL,
-        CONSTRAINT fk_title_akas_id
+        CONSTRAINT fk_ta_title_akas_id
             FOREIGN KEY (title_akas_id) REFERENCES title_akas(id) 
         ON UPDATE CASCADE ON DELETE CASCADE,
-        CONSTRAINT fk_title_types_id
+        CONSTRAINT fk_ta_title_types_id
             FOREIGN KEY (title_attribute_id) REFERENCES title_attribute(id) 
         ON UPDATE CASCADE ON DELETE CASCADE
     );
@@ -204,18 +204,15 @@ normalized_title_principals = [
         nconst VARCHAR(12)  NOT NULL,
         category_id  INT NULL,
         job VARCHAR(256) NULL,
-        CONSTRAINT fk_tconst
+        CONSTRAINT fk_tp_tconst
             FOREIGN KEY (tconst) REFERENCES title_basics(tconst)
-            ON UPDATE CASCADE
-            ON DELETE CASCADE,
-        CONSTRAINT fk_nconst
+            ON UPDATE CASCADE ON DELETE CASCADE,
+        CONSTRAINT fk_tp_nconst
             FOREIGN KEY (nconst) REFERENCES name_basics(nconst)
-            ON UPDATE CASCADE
-            ON DELETE CASCADE,
-        CONSTRAINT fk_category_id
+            ON UPDATE CASCADE ON DELETE CASCADE,
+        CONSTRAINT fk_tp_category_id
             FOREIGN KEY (category_id) REFERENCES principal_category(id)
-            ON UPDATE CASCADE
-            ON DELETE SET NULL
+            ON UPDATE CASCADE ON DELETE CASCADE
     );
     """,
 
@@ -224,19 +221,92 @@ normalized_title_principals = [
     CREATE TABLE IF NOT EXISTS principal_character (
         id INT AUTO_INCREMENT PRIMARY KEY,
         title_principals_id INT NOT NULL,
-        character VARCHAR(512) NULL,
-        CONSTRAINT fk_title_principals_id
-            FOREIGN KEY title_principals_id
-            REFERENCES title_principals(id)
-            ON UPDATE CASCADE
-            ON DELETE CASCADE
+        character_name VARCHAR(512) NULL,
+        CONSTRAINT fk_tp_title_principals_id
+            FOREIGN KEY (title_principals_id) REFERENCES title_principals(id)
+            ON UPDATE CASCADE ON DELETE CASCADE
     );
     """
 ]
 
-DDL_STATEMENTS = [
+# Normalized title_crew
+normalized_title_crew = [
+    # Bridge: title_director
+    """
+    CREATE TABLE IF NOT EXISTS title_director (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tconst VARCHAR(12) NOT NULL,
+        nconst VARCHAR(12) NOT NULL,
+        CONSTRAINT fk_td_tconst
+            FOREIGN KEY (tconst)
+            REFERENCES title_basics(tconst)
+            ON UPDATE CASCADE ON DELETE CASCADE,
+        CONSTRAINT fk_td_nconst
+            FOREIGN KEY (nconst)
+            REFERENCES name_basics(nconst)
+            ON UPDATE CASCADE ON DELETE CASCADE
+    );
+    """,
+
+    # Bridge: title_writer
+    """
+    CREATE TABLE IF NOT EXISTS title_writer (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tconst VARCHAR(12) NOT NULL,
+        nconst VARCHAR(12) NOT NULL,
+        CONSTRAINT fk_tw_tconst
+            FOREIGN KEY (tconst)
+            REFERENCES title_basics(tconst)
+            ON UPDATE CASCADE ON DELETE CASCADE,
+        CONSTRAINT fk_tw_nconst
+            FOREIGN KEY (nconst)
+            REFERENCES name_basics(nconst)
+            ON UPDATE CASCADE ON DELETE CASCADE
+    );
+    """
+]
+
+# Rest of tables
+normalized_title_episode_AND_title_ratings = [
+    # Table: title_episode
+    """
+    CREATE TABLE IF NOT EXISTS title_episode (
+        tconst VARCHAR(12) PRIMARY KEY NOT NULL,
+        parentTconst VARCHAR(12) NULL,
+        seasonNumber INT NULL,
+        episodeNumber INT NULL,
+        CONSTRAINT fk_te_tconst
+            FOREIGN KEY (tconst) REFERENCES title_basics(tconst)
+            ON UPDATE CASCADE ON DELETE CASCADE,
+        CONSTRAINT fk_te_parentTconst
+            FOREIGN KEY (parentTconst) REFERENCES title_basics(tconst)
+            ON UPDATE CASCADE ON DELETE CASCADE
+    );
+    """,
+
+    # Table: title_ratings
+    """
+    CREATE TABLE IF NOT EXISTS title_ratings (
+        tconst VARCHAR(12) PRIMARY KEY NOT NULL,
+        averageRating DECIMAL(3,1) NULL,
+        numVotes INT NULL,
+        CONSTRAINT fk_tr_tconst
+            FOREIGN KEY (tconst) REFERENCES title_basics(tconst)
+            ON UPDATE CASCADE ON DELETE CASCADE
+    );
+    """
+]
+
+
+DBC_STATEMENTS = [
+    start_Statements,
     normalized_title_basic,
-                  ]
+    normalized_name_basic,
+    normalized_title_akas,
+    normalized_title_principals,
+    normalized_title_crew,
+    normalized_title_episode_AND_title_ratings
+]
 
 def main():
     conn = mysql.connect(
@@ -248,12 +318,12 @@ def main():
 
     cur = conn.cursor()
 
-    for stmt in DDL_STATEMENTS:
-        for sql in [s.strip() + ";" for s in stmt.split(";") if s.strip()]:
+    for statement_list in DBC_STATEMENTS:
+        for query in statement_list:
             try:
-                cur.execute(sql)
+                cur.execute(query)
             except mysql.Error as err:
-                print(f"Error executing:\n{sql}\n→ {err}")
+                print(f"Error executing:\n{query}\n→ {err}")
                 raise
 
     cur.close()
