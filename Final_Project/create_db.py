@@ -138,9 +138,9 @@ normalized_title_akas = [
     );
     """,
 
-    # Lookup: title_type (e.g., "tv", "festival", "dvd", etc.)
+    # Lookup: types (e.g., "tv", "festival", "dvd", etc.)
     """
-    CREATE TABLE IF NOT EXISTS title_types (
+    CREATE TABLE IF NOT EXISTS types (
         id INT AUTO_INCREMENT PRIMARY KEY,
         type_name VARCHAR(512) NOT NULL
     );
@@ -156,7 +156,7 @@ normalized_title_akas = [
             FOREIGN KEY (title_akas_id) REFERENCES title_akas(id) 
         ON UPDATE CASCADE ON DELETE CASCADE,
         CONSTRAINT fk_tt_title_types_id
-            FOREIGN KEY (title_types_id) REFERENCES title_types(id) 
+            FOREIGN KEY (title_types_id) REFERENCES types(id) 
         ON UPDATE CASCADE ON DELETE CASCADE
     );
     """,
