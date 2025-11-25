@@ -1,11 +1,11 @@
 import mysql.connector as mysql
 
 # ---- UPDATE THESE AS NEEDED ----
-DB_HOST = "*"
-DB_PORT = 3306
-DB_USER = "*"
-DB_PASS = "*"
-DB_NAME = "*"
+DB_HOST = "34.45.141.24"
+DB_PORT = 11133
+DB_USER = "yflee-rw"
+DB_PASS = "dd85e08d326ae6dc2102248f5c6cfc0b"
+DB_NAME = "imdb_normalized"
 # --------------------------------
 
 # Create databases if not exist
@@ -34,9 +34,9 @@ normalized_title_basic = [
             primaryTitle VARCHAR(512) NULL,
             originalTitle VARCHAR(512) NULL,
             isAdult TINYINT(1) NULL,
-            startYear SMALLINT NULL,
-            endYear SMALLINT NULL,
-            runtimeMinutes SMALLINT NULL,
+            startYear INT NULL,
+            endYear INT NULL,
+            runtimeMinutes INT NULL,
             title_type_id INT NULL,
             CONSTRAINT fk_tt_type_id
                 FOREIGN KEY (title_type_id) REFERENCES title_type(title_type_id)
@@ -77,8 +77,8 @@ normalized_name_basic = [
     CREATE TABLE IF NOT EXISTS name_basics (
         nconst VARCHAR(12) NOT NULL PRIMARY KEY,
         primaryName VARCHAR(256) NULL,
-        birthYear SMALLINT NULL,
-        deathYear SMALLINT NULL
+        birthYear INT NULL,
+        deathYear INT NULL
     );
     """,
 
@@ -108,7 +108,7 @@ normalized_name_basic = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         nconst VARCHAR(12) NOT NULL,
         tconst VARCHAR(12) NOT NULL,
-        position SMALLINT NOT NULL,
+        position INT NOT NULL,
         CONSTRAINT fk_nt_nconst
             FOREIGN KEY (nconst) REFERENCES name_basics(nconst)
             ON UPDATE CASCADE ON DELETE CASCADE,
