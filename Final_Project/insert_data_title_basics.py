@@ -8,7 +8,7 @@ from pathlib import Path
 from connect_db import *
 
 TITLE_BASICS_TSV = Path("C:\\My_Programs\\Temp\\Data\\title.basics.tsv")
-BATCH_SIZE = 200
+BATCH_SIZE = 2000
 
 
 def parse_int(value):
@@ -107,10 +107,6 @@ def load_title_basics_and_title_genre(tsv_path: Path, title_type_map, genre_map)
     - Insert exploded genre values into the 'title_genre' bridge table.
     """
 
-    conn = connect_db()
-    conn.autocommit = False
-    cur = conn.cursor()
-
     # SQL for inserting into title_basics
     insert_title_basics_sql = """
         INSERT IGNORE INTO title_basics (
@@ -202,11 +198,19 @@ def load_title_basics_and_title_genre(tsv_path: Path, title_type_map, genre_map)
             # 4. Periodically flush batches into the database
             # ---------------------------------------------------
             if len(title_basics_batch) >= BATCH_SIZE or len(title_genre_batch) >= BATCH_SIZE:
+
+                conn = connect_db()
+                conn.autocommit = False
+                cur = conn.cursor()
+
                 cur.executemany(insert_title_basics_sql, title_basics_batch)
                 title_basics_batch.clear()
                 cur.executemany(insert_title_genre_sql, title_genre_batch)
                 title_genre_batch.clear()
                 conn.commit()
+
+                cur.close()
+                conn.close()
 
             # Progress message every 100k lines
             if i % 100000 == 0:
@@ -216,13 +220,29 @@ def load_title_basics_and_title_genre(tsv_path: Path, title_type_map, genre_map)
     # 5. Final flush after file is done
     # -----------------------------------
     if title_basics_batch:
-        cur.executemany(insert_title_basics_sql, title_basics_batch)
-    if title_genre_batch:
-        cur.executemany(insert_title_genre_sql, title_genre_batch)
-    conn.commit()
 
-    cur.close()
-    conn.close()
+        conn = connect_db()
+        conn.autocommit = False
+        cur = conn.cursor()
+
+        cur.executemany(insert_title_basics_sql, title_basics_batch)
+        cur.commit()
+
+        cur.close()
+        conn.close()
+
+    if title_genre_batch:
+
+        conn = connect_db()
+        conn.autocommit = False
+        cur = conn.cursor()
+
+        cur.executemany(insert_title_genre_sql, title_genre_batch)
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
     print("Finished loading title_basics and title_genre.")
 
 
