@@ -1,11 +1,10 @@
 """
 Pre-process data and insert the normalized data from title_basics
 """
-import mysql.connector as mysql
 import csv
-from collections import defaultdict
 from pathlib import Path
 from connect_db import *
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 TITLE_BASICS_TSV = Path("C:\\My_Programs\\Temp\\Data\\title.basics.tsv")
 BATCH_SIZE = 2000
@@ -59,8 +58,7 @@ def collect_distinct_types_and_genres(tsv_path: Path):
 
     return title_types, genres
 
-
-def insert_lookups(title_types, genres):
+def insert(title_types, genres):
     """
     Insert distinct title_types & genres into lookup tables,
     """
@@ -84,6 +82,18 @@ def insert_lookups(title_types, genres):
 
     conn.commit()
 
+    cur.close()
+    conn.close()
+
+
+def lookups():
+    """
+    look up genres and title_types from tables,
+    """
+    conn = connect_db()
+    conn.autocommit = False
+    cur = conn.cursor()
+
     # Build maps from text -> id
     title_type_map = {}
     genre_map = {}
@@ -101,70 +111,85 @@ def insert_lookups(title_types, genres):
     return title_type_map, genre_map
 
 
-def load_title_basics_and_title_genre(tsv_path: Path, title_type_map, genre_map):
+def load_title_basics_and_title_genre(tsv_path: Path,
+                                      title_type_map,
+                                      genre_map,
+                                      max_workers: int=5,
+                                      chunk_size: int=10000
+                                      ):
+
     """
-    - Insert cleaned rows into the normalized 'title_basics' table.
-    - Insert exploded genre values into the 'title_genre' bridge table.
+    Multi-threaded loader for title.basics.tsv:
+    - Splits the file into chunks of rows.
+    - Each chunk is processed in a separate thread with its own DB connection.
+    - For each chunk, inserts into title_basics (parent) and then title_genre (child).
+
+    Parameters
+    ----------
+    tsv_path : Path
+        Path to title.basics.tsv
+    title_type_map : dict
+        Maps cleaned titleType text -> title_type_id
+    genre_map : dict
+        Maps cleaned genre text -> genre_id
+    max_workers : int
+        Number of worker threads to use for DB insertions.
+    chunk_size : int
+        Number of TSV rows per chunk submitted to a worker.
     """
 
-    # SQL for inserting into title_basics
-    insert_title_basics_sql = """
-        INSERT IGNORE INTO title_basics (
-            tconst,
-            primaryTitle,
-            originalTitle,
-            isAdult,
-            startYear,
-            endYear,
-            runtimeMinutes,
-            title_type_id
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-    """
+    def process_chunk(rows):
+        """
+        Process a list of CSV rows (dicts) in a single thread:
+        - Open a new DB connection
+        - Build batches for title_basics and title_genre
+        - Insert parents first, then children
+        """
 
-    # SQL for inserting into the many-to-many table title_genre
-    insert_title_genre_sql = """
-        INSERT IGNORE INTO title_genre (tconst, genre_id)
-        VALUES (%s, %s);
-    """
+        insert_title_basics_sql = """
+            INSERT IGNORE INTO title_basics (
+                tconst,
+                primaryTitle,
+                originalTitle,
+                isAdult,
+                startYear,
+                endYear,
+                runtimeMinutes,
+                title_type_id
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        """
 
-    # Batches for efficient bulk insertion
-    title_basics_batch = []
-    title_genre_batch = []
+        insert_title_genre_sql = """
+            INSERT IGNORE INTO title_genre (tconst, genre_id)
+             VALUES (%s, %s);
+        """
 
-    # Open and scan the TSV file again
-    with tsv_path.open("r", encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE)
+        title_basics_batch = []
+        title_genre_batch = []
 
-        for i, row in enumerate(reader, start=1):
-
-            # -------------------------------
-            # 1. Extract and clean main fields
-            # -------------------------------
+        for row in rows:
             tconst = row.get("tconst")
             if not tconst:
-                continue  # Required field missing; skip row
+                continue
 
             primaryTitle = None if row.get("primaryTitle") in (None, r"\N") else row["primaryTitle"]
             originalTitle = None if row.get("originalTitle") in (None, r"\N") else row["originalTitle"]
-
-            # Convert booleans, ints, etc.
             isAdult = parse_bool_01(row.get("isAdult"))
+
+            # Use range-aware parsing if you implemented it
             startYear = parse_int(row.get("startYear"))
             endYear = parse_int(row.get("endYear"))
             runtimeMinutes = parse_int(row.get("runtimeMinutes"))
 
-            # ----------------------------------------
-            # 2. Map titleType text -> title_type_id FK
-            # ----------------------------------------
+            # Map titleType text -> title_type_id
             titleType_raw = row.get("titleType")
             title_type_id = None
             if titleType_raw and titleType_raw != r"\N":
                 tt_clean = titleType_raw.strip()
                 if tt_clean:
-                    # If lookup doesn't exist, it's left as NULL (rare)
                     title_type_id = title_type_map.get(tt_clean)
 
-            # Add to the title_basics batch
+            # Parent row
             title_basics_batch.append(
                 (
                     tconst,
@@ -178,73 +203,70 @@ def load_title_basics_and_title_genre(tsv_path: Path, title_type_map, genre_map)
                 )
             )
 
-            # ---------------------------------------------------
-            # 3. Handle multivalue "genres" → title_genre bridge
-            # ---------------------------------------------------
+            # Children rows (genres)
             genres_raw = row.get("genres")
             if genres_raw and genres_raw != r"\N":
-                # Split comma-separated genres
                 for part in genres_raw.split(","):
                     g_clean = part.strip()
                     if not g_clean or g_clean == r"\N":
                         continue
-
-                    # Map genre text -> genre_id
                     genre_id = genre_map.get(g_clean)
                     if genre_id is not None:
                         title_genre_batch.append((tconst, genre_id))
 
-            # ---------------------------------------------------
-            # 4. Periodically flush batches into the database
-            # ---------------------------------------------------
-            if len(title_basics_batch) >= BATCH_SIZE or len(title_genre_batch) >= BATCH_SIZE:
+        try:
 
-                conn = connect_db()
-                conn.autocommit = False
-                cur = conn.cursor()
+            conn = connect_db()
+            conn.autocommit = False
+            cur = conn.cursor()
 
-                cur.executemany(insert_title_basics_sql, title_basics_batch)
-                title_basics_batch.clear()
-                cur.executemany(insert_title_genre_sql, title_genre_batch)
-                title_genre_batch.clear()
-                conn.commit()
+            # Insert parents first
+            cur.executemany(insert_title_basics_sql, title_basics_batch)
 
-                cur.close()
-                conn.close()
+            cur.executemany(insert_title_genre_sql, title_genre_batch)
 
-            # Progress message every 100k lines
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cur.close()
+            conn.close()
+
+        return len(title_basics_batch), len(title_genre_batch)
+
+    # -------- Main function body: read TSV, submit chunks to threads --------
+    total_titles = 0
+    total_genres = 0
+    futures = []
+
+    with tsv_path.open("r", encoding="utf-8") as f, ThreadPoolExecutor(max_workers=max_workers) as executor:
+        reader = csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE)
+        current_chunk = []
+        for i, row in enumerate(reader, start=1):
+            current_chunk.append(row)
+
+            if len(current_chunk) >= chunk_size:
+                # Submit chunk to a worker thread
+                futures.append(executor.submit(process_chunk, current_chunk))
+                current_chunk = []
+
             if i % 100000 == 0:
-                print(f"Processed {i} rows from title.basics.tsv")
+                print(f"Queued {i} rows from title.basics.tsv")
 
-    # -----------------------------------
-    # 5. Final flush after file is done
-    # -----------------------------------
-    if title_basics_batch:
+        # Submit any remaining rows
+        if current_chunk:
+            futures.append(executor.submit(process_chunk, current_chunk))
 
-        conn = connect_db()
-        conn.autocommit = False
-        cur = conn.cursor()
+        # Collect results
+        for fut in as_completed(futures):
+            inserted_titles, inserted_genres = fut.result()
+            total_titles += inserted_titles
+            total_genres += inserted_genres
 
-        cur.executemany(insert_title_basics_sql, title_basics_batch)
-        cur.commit()
-
-        cur.close()
-        conn.close()
-
-    if title_genre_batch:
-
-        conn = connect_db()
-        conn.autocommit = False
-        cur = conn.cursor()
-
-        cur.executemany(insert_title_genre_sql, title_genre_batch)
-        conn.commit()
-
-        cur.close()
-        conn.close()
-
-    print("Finished loading title_basics and title_genre.")
-
+    print(f"Finished loading title_basics and title_genre via threads.")
+    print(f"Total title_basics rows inserted: {total_titles}")
+    print(f"Total title_genre rows inserted: {total_genres}")
 
 def main():
 
@@ -254,7 +276,8 @@ def main():
     print(f"Found {len(genres)} distinct genre values")
 
     print("Inserting lookup tables (title_type, genre)...")
-    title_type_map, genre_map = insert_lookups(title_types, genres)
+    # insert(title_types, genres)
+    title_type_map, genre_map = lookups()
 
     print("Loading title_basics and title_genre")
     load_title_basics_and_title_genre(TITLE_BASICS_TSV, title_type_map, genre_map)
