@@ -276,7 +276,7 @@ def main():
     print(f"Found {len(genres)} distinct genre values")
 
     print("Inserting lookup tables (title_type, genre)...")
-    # insert(title_types, genres)
+    insert(title_types, genres)
     title_type_map, genre_map = lookups()
 
     print("Loading title_basics and title_genre")
