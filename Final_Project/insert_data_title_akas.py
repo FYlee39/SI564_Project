@@ -141,32 +141,30 @@ def load_existing_title_ids():
 
 
 def load_title_akas_and_bridges(
-    tsv_path: Path,
-    aka_type_map,
-    aka_attr_map,
-    existing_title_ids,
-    max_workers: int = 4,
-    chunk_size: int = 10000,
+        tsv_path: Path,
+        aka_type_map,
+        aka_attr_map,
+        existing_title_ids,
+        max_workers: int = 4,
+        chunk_size: int = 10000,
 ):
     """
-    Multi-threaded loader for title.akas.tsv (using surrogate PK aka_id):
+    Multi-threaded loader for title.akas.tsv (using surrogate PK id):
 
     - Splits the TSV into chunks of rows (dicts).
     - Each chunk is processed in its own thread with its own DB connection.
     - For each row in a chunk:
-        1) Insert into title_akas (one row, get aka_id via lastrowid)
+        1) Insert into title_akas (one row, get id via lastrowid)
         2) Insert rows into:
-             * title_aka_type(aka_id, aka_type_id)
-             * title_aka_attribute(aka_id, aka_attribute_id)
+             * title_aka_type(id, aka_type_id)
+             * title_aka_attribute(id, aka_attribute_id)
 
     Assumptions:
-    - title_akas has: aka_id INT AUTO_INCREMENT PRIMARY KEY, plus the other fields.
-    - title_aka_type and title_aka_attribute use aka_id as FK.
+    - title_akas has: id INT AUTO_INCREMENT PRIMARY KEY, plus the other fields.
+    - title_aka_type and title_aka_attribute use id as FK.
     - existing_title_ids is a set of valid tconst values from title_basics (FK safety).
     - Global constants BATCH_SIZE and MAX_ROWS may be defined elsewhere.
     """
-
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def process_chunk(rows):
         """
