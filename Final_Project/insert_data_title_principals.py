@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # ---------------- CONFIG ----------------
 
 TITLE_PRINCIPALS_TSV = Path("C:\\My_Programs\\Temp\\Data\\title.principals.tsv")  # update as needed
-BATCH_SIZE = 2000
+BATCH_SIZE = 200
 
 # ----------------------------------------
 
@@ -104,7 +104,7 @@ def load_title_principals_and_characters_mt(
         existing_title_ids,
         existing_name_ids,
         max_workers: int=5,
-        chunk_size: int=1000,
+        chunk_size: int=200,
 ):
     """
     Multi-threaded loader for title.principals.tsv (using surrogate PK 'id').
@@ -129,8 +129,6 @@ def load_title_principals_and_characters_mt(
           1) Insert into title_principals (single row, grab 'id' via lastrowid)
           2) Insert related characters into principal_character using that id.
     """
-
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def parse_characters_field(characters_raw: str):
         """
@@ -189,7 +187,7 @@ def load_title_principals_and_characters_mt(
 
         insert_character_sql = """
             INSERT INTO principal_character (
-                principal_id,
+                title_principals_id,
                 character_name
             ) VALUES (%s, %s);
         """
@@ -260,7 +258,8 @@ def load_title_principals_and_characters_mt(
                 characters_batch.clear()
                 conn.commit()
 
-        except Exception:
+        except Exception as e:
+            print(e)
             conn.rollback()
             raise
         finally:
@@ -313,7 +312,7 @@ def main():
     print(f"Found {len(categories)} distinct category values")
 
     print("Inserting/Updating lookup table 'principal_category'...")
-    # insert_categories(categories)
+    insert_categories(categories)
     category_map = lookup_categories()
     print("Category lookup loaded.")
 
