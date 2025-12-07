@@ -97,6 +97,9 @@ normalized_name_basic = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         nconst VARCHAR(12) NOT NULL,
         profession_id INT NOT NULL
+        CONSTRAINT person_profession_name_basics_fk
+            FOREIGN KEY (nconst) REFERENCES name_basics(nconst)
+            ON UPDATE CASCADE ON DELETE CASCADE
     );
     """,
 
