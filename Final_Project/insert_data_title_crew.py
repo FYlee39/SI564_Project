@@ -46,14 +46,14 @@ def load_title_crew_mt(
     existing_name_ids,
     max_workers: int=5,
     chunk_size: int=1000,
-):
+        ):
     """
     Multi-threaded loader for title.crew.tsv:
 
     Raw file columns:
       - tconst
-      - directors  (comma-separated list of nconst or \N)
-      - writers    (comma-separated list of nconst or \N)
+      - directors  (comma-separated list of nconst or NA)
+      - writers    (comma-separated list of nconst or NA)
 
     Target normalized tables:
       - title_director(tconst, nconst)
