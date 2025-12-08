@@ -97,9 +97,12 @@ normalized_name_basic = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         nconst VARCHAR(12) NOT NULL,
         profession_id INT NOT NULL
+<<<<<<< HEAD
         CONSTRAINT person_profession_name_basics_fk
             FOREIGN KEY (nconst) REFERENCES name_basics(nconst)
             ON UPDATE CASCADE ON DELETE CASCADE
+=======
+>>>>>>> eb3b5dc2ea05affd3c12176b89f1a65ddef378d2
     );
     """,
 
@@ -171,7 +174,6 @@ normalized_title_akas = [
         attribute_name VARCHAR(128) NOT NULL
     );
     """,
-
     # Bridge: title_aka_attribute
     """
     CREATE TABLE IF NOT EXISTS title_aka_attribute (
